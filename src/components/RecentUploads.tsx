@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { FileIcon, Upload, Clock, Copy, Check, Link2, Calendar, LockIcon } from "lucide-react";
+import { FileIcon, Upload, Clock, Check, Link2, Calendar, LockIcon } from "lucide-react";
 
 // Yüklenen dosya tipi
 interface UploadedFile {
@@ -44,6 +44,12 @@ const RecentUploads = () => {
     loadUploadsFromStorage();
     
     // Storage değişikliklerini dinle
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === "recentUploads") {
+        loadUploadsFromStorage();
+      }
+    };
+    
     window.addEventListener('storage', handleStorageChange);
     
     // Custom event dinleyicisi ekle
@@ -54,13 +60,6 @@ const RecentUploads = () => {
       window.removeEventListener(UPLOAD_EVENT, loadUploadsFromStorage);
     };
   }, []);
-
-  // Storage değişikliklerini dinle
-  const handleStorageChange = (event: StorageEvent) => {
-    if (event.key === "recentUploads") {
-      loadUploadsFromStorage();
-    }
-  };
 
   // Öğeyi sil
   const removeItem = (id: string) => {
@@ -82,7 +81,7 @@ const RecentUploads = () => {
 
   // Bağlantıyı kopyala
   const copyLink = (id: string) => {
-    const link = `${window.location.origin}/${id}`;
+    const link = `${window.location.origin}/api/download/${id}`;
     navigator.clipboard.writeText(link)
       .then(() => {
         setCopiedId(id);

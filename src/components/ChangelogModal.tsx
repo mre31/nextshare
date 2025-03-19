@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { X } from "lucide-react";
 
 interface ChangelogModalProps {
@@ -45,6 +44,7 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
                 <p>• Improved file card design</p>
                 <p>• Added encrypted file indication with lock icon</p>
                 <p>• Quick copy link feature in Recent Uploads</p>
+                <p>• Added direct API download links for faster downloads</p>
               </div>
             </div>
             

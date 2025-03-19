@@ -253,8 +253,11 @@ const FileUploadForm = () => {
     });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
+  const copyToClipboard = () => {
+    // API URL'ini oluştur (doğrudan indirme linki)
+    const apiUrl = `${window.location.origin}/api/download/${shareLink}`;
+    
+    navigator.clipboard.writeText(apiUrl)
       .then(() => {
         // Successfully copied
         if (linkRef.current) {
@@ -262,7 +265,7 @@ const FileUploadForm = () => {
         }
         
         // Update button text
-        setCopyButtonText("Download Link Copied!");
+        setCopyButtonText("Direct Download Link Copied!");
         
         // Revert back after 3 seconds
         setTimeout(() => {
@@ -413,7 +416,7 @@ const FileUploadForm = () => {
         // Recent Uploads widget'ını güncelle
         try {
           notifyRecentUploadsChanged();
-        } catch (e) {
+        } catch {
           console.log("Recent uploads notification failed");
         }
       }
@@ -692,7 +695,7 @@ const FileUploadForm = () => {
               <div className={`flex flex-col w-full gap-3 ${showSuccessItems ? 'animate-slide-down slide-5' : 'opacity-0'}`}>
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
-                  onClick={() => copyToClipboard(`${window.location.origin}/${shareLink}`)}
+                  onClick={() => copyToClipboard()}
                 >
                   {copyButtonText}
                 </Button>

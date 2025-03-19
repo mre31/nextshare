@@ -39,7 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-./uploads
-./uploads/*
-./tempuploads
-./tempuploads/*
+/uploads
+/uploads/*
+/temp_uploads
+/temp_uploads/*
