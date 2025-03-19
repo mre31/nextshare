@@ -45,6 +45,8 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
                 <p>• Added encrypted file indication with lock icon</p>
                 <p>• Quick copy link feature in Recent Uploads</p>
                 <p>• Added direct API download links for faster downloads</p>
+                <p>• Fixed Recent Uploads to copy download page link instead of direct link</p>
+                <p>• Changed default file retention period to 24 hours</p>
               </div>
             </div>
             

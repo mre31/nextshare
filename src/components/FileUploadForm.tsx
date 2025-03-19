@@ -139,7 +139,7 @@ const saveRecentUpload = (fileData: {
 
 const FileUploadForm = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [duration, setDuration] = useState<string>("3");
+  const [duration, setDuration] = useState<string>("24");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploadedChunks, setUploadedChunks] = useState(0);
@@ -370,20 +370,35 @@ const FileUploadForm = () => {
       
       console.log(`File: ${file.name}, Size: ${fileSize.toFixed(2)} MB, Number of chunks: ${chunks.length}, Encrypted: ${isEncrypted}`);
       
-      for (let i = 0; i < chunks.length; i++) {
-        await uploadChunk(
-          chunks[i], 
-          fileId, 
-          file.name, 
-          i, 
-          chunks.length, 
-          durationHours,
-          isEncrypted,
-          password
-        );
+      // Her 3 chunks için paralel yükleme yapalım, böylece daha hızlı olacak
+      // ama sunucuyu da aşırı yüklemeyecek
+      for (let i = 0; i < chunks.length; i += 3) {
+        const uploadPromises = [];
         
-        setUploadedChunks(prev => prev + 1);
-        setProgress(Math.round(((i + 1) / chunks.length) * 100));
+        // Bir seferde 3 chunk yükleyelim (veya kalan ne kadarsa)
+        for (let j = 0; j < 3 && i + j < chunks.length; j++) {
+          const chunkIndex = i + j;
+          uploadPromises.push(
+            uploadChunk(
+              chunks[chunkIndex], 
+              fileId, 
+              file.name, 
+              chunkIndex, 
+              chunks.length, 
+              durationHours,
+              isEncrypted,
+              password
+            )
+          );
+        }
+        
+        // Tüm paralel yüklemelerin tamamlanmasını bekleyelim
+        await Promise.all(uploadPromises);
+        
+        // Tamamlanan chunkları güncelle
+        const completedChunks = Math.min(i + 3, chunks.length);
+        setUploadedChunks(completedChunks);
+        setProgress(Math.round((completedChunks / chunks.length) * 100));
       }
       
       console.log("File successfully uploaded");

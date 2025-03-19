@@ -81,7 +81,7 @@ const RecentUploads = () => {
 
   // Bağlantıyı kopyala
   const copyLink = (id: string) => {
-    const link = `${window.location.origin}/api/download/${id}`;
+    const link = `${window.location.origin}/${id}`;
     navigator.clipboard.writeText(link)
       .then(() => {
         setCopiedId(id);

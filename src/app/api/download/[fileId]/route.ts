@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { readFile, stat } from 'fs/promises';
+import { createReadStream } from 'fs';
 
 // Directory definitions
 const UPLOADS_DIR = join(process.cwd(), 'uploads');
@@ -38,8 +39,7 @@ export async function GET(
       return new NextResponse('File not found', { status: 404 });
     }
     
-    // Send the file
-    const fileBuffer = await readFile(finalPath);
+    // Get file stats for content-length
     const fileStats = await stat(finalPath);
     
     // Set headers
@@ -48,7 +48,28 @@ export async function GET(
     headers.set('Content-Type', 'application/octet-stream');
     headers.set('Content-Length', fileStats.size.toString());
     
-    return new NextResponse(fileBuffer, {
+    // Create a read stream instead of loading the entire file into memory
+    const fileStream = createReadStream(finalPath);
+    
+    // Use web streams API to stream the file instead of loading it all into memory
+    const stream = new ReadableStream({
+      start(controller) {
+        fileStream.on('data', (chunk) => {
+          controller.enqueue(chunk);
+        });
+        
+        fileStream.on('end', () => {
+          controller.close();
+        });
+        
+        fileStream.on('error', (error) => {
+          console.error('Stream error:', error);
+          controller.error(error);
+        });
+      },
+    });
+    
+    return new NextResponse(stream, {
       headers,
       status: 200,
     });

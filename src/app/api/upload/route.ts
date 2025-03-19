@@ -170,22 +170,31 @@ export async function POST(request: NextRequest) {
         // Create final file (in folder by ID)
         const finalPath = join(uploadFileDir, fileName);
         
-        // For encrypted files, merge all chunks first, then encrypt the whole file
+        // For encrypted files, process in smaller chunks to reduce memory usage
         if (isEncrypted && password) {
-          // Collect all chunks into a single buffer
-          let fullFileBuffer = Buffer.alloc(0);
+          // Prepare encryption
+          const iv = crypto.randomBytes(16);
+          const key = crypto.scryptSync(password, 'salt', 32);
+          const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
           
+          // Write IV at the beginning of the file
+          await writeFile(finalPath, iv);
+          
+          // Process each chunk and append to the file
           for (let i = 0; i < totalChunks; i++) {
             const chunkPath = join(fileDir, `chunk-${i}`);
             const chunkData = await readFile(chunkPath);
-            fullFileBuffer = Buffer.concat([fullFileBuffer, chunkData]);
+            
+            // Encrypt and append (for the last chunk, include cipher.final())
+            if (i === totalChunks - 1) {
+              await appendFile(finalPath, Buffer.concat([
+                cipher.update(chunkData),
+                cipher.final()
+              ]));
+            } else {
+              await appendFile(finalPath, cipher.update(chunkData));
+            }
           }
-          
-          // Encrypt the full file buffer
-          const encryptedBuffer = encryptData(fullFileBuffer, password);
-          
-          // Write the encrypted file
-          await writeFile(finalPath, encryptedBuffer);
         } else {
           // For non-encrypted files, just merge chunks normally
           // Copy first chunk
