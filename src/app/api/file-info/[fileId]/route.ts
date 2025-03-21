@@ -4,6 +4,9 @@ import { existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { statSync } from 'fs';
 
+// Export modunda API route'lar için gerekli
+export const dynamic = 'force-dynamic';
+
 // Directory definitions
 const UPLOADS_DIR = join(process.cwd(), 'uploads');
 

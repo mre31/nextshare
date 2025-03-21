@@ -6,8 +6,12 @@ const nextConfig: NextConfig = {
     // Deneysel özellikler (gerekirse)
   },
   distDir: '.next',
-  // Output derleme hedefi
-  output: 'standalone',
+  // Output derleme hedefi - export yerine servera çeviriyorum
+  output: undefined, // output tanımını kaldırarak varsayılan değere dönüyoruz
+  compiler: {
+    // Turbopack yerine webpack kullanmaya zorla
+    reactRemoveProperties: { properties: ['^data-test$'] },
+  },
 };
 
 export default nextConfig;

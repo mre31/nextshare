@@ -4,6 +4,9 @@ import { existsSync } from 'fs';
 import { readFile, stat } from 'fs/promises';
 import * as crypto from 'crypto';
 
+// Export modunda API route'lar için gerekli
+export const dynamic = 'force-dynamic';
+
 // Directory definitions
 const UPLOADS_DIR = join(process.cwd(), 'uploads');
 

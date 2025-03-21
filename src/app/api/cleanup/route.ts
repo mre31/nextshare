@@ -3,6 +3,9 @@ import { readdir, readFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
+// Export modunda API route'lar için gerekli
+export const dynamic = 'force-dynamic';
+
 // Uploads dizini
 const UPLOADS_DIR = join(process.cwd(), 'uploads');
 

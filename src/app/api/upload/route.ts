@@ -4,6 +4,9 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import * as crypto from 'crypto';
 
+// Export modunda API route'lar için gerekli
+export const dynamic = 'force-dynamic';
+
 // Metadata tip tanımı
 interface FileMetadata {
   fileName: string;
@@ -34,6 +37,8 @@ function hashPassword(password: string): string {
     .digest('hex');
 }
 
+// Kullanılmayan fonksiyon - gerekirse tekrar etkinleştirin
+/*
 // Function to encrypt file data
 function encryptData(data: Buffer, password: string): Buffer {
   // Create a cipher using the password and a random initialization vector
@@ -50,6 +55,7 @@ function encryptData(data: Buffer, password: string): Buffer {
   
   return encryptedData;
 }
+*/
 
 // Function to clean up temporary files
 async function cleanupTempFiles(fileDir: string) {
