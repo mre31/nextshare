@@ -254,8 +254,8 @@ const FileUploadForm = () => {
   };
 
   const copyToClipboard = () => {
-    // API URL'ini oluştur (doğrudan indirme linki)
-    const apiUrl = `${window.location.origin}/api/download/${shareLink}`;
+    
+    const apiUrl = `${window.location.origin}/api/${shareLink}`;
     
     navigator.clipboard.writeText(apiUrl)
       .then(() => {
