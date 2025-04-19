@@ -543,7 +543,7 @@ const FileUploadForm = () => {
               <div className="w-32 flex justify-end">
                 <Select
                   value={duration}
-                  onValueChange={(value) => setDuration(value)}
+                  onValueChange={(value: string) => setDuration(value)}
                   disabled={uploading}
                 >
                   <SelectTrigger id="duration" className="bg-zinc-700 border-zinc-600 text-zinc-200 w-32">

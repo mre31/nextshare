@@ -30,16 +30,31 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
         {/* Modal content */}
         <div className="p-4 max-h-[70vh] overflow-y-auto">
           <div className="space-y-6">
-            {/* Version 3.0.1 */}
+            {/* Version 3.0.2 */}
             <div className="space-y-2">
               <h4 className="text-blue-400 font-semibold flex items-center">
                 <span className="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                Version 3.0.1
+                Version 3.0.2
                 <span className="ml-2 text-xs font-normal text-zinc-500">
                   Current
                 </span>
               </h4>
               <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
+                <p>• Redesigned URL structure, now using a single format for file sharing</p>
+                <p>• Removed /share/ URL route, only using share.frondev.com/fileid format</p>
+                <p>• Improved UI/UX user experience</p>
+                <p>• API endpoint changes for direct download links</p>
+                <p>• Bug fixes and performance improvements</p>
+              </div>
+            </div>
+            
+            {/* Version 3.0.1 */}
+            <div className="space-y-2">
+              <h4 className="text-zinc-400 font-semibold flex items-center">
+                <span className="inline-block w-2 h-2 bg-zinc-400 rounded-full mr-2"></span>
+                Version 3.0.1
+              </h4>
+              <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-400">
                 <p>• Added Recent Uploads widget</p>
                 <p>• Improved file card design</p>
                 <p>• Added encrypted file indication with lock icon</p>
