@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, readFile, rm, stat, readdir, appendFile } from 'fs/promises';
+import { writeFile, mkdir, readFile, rm } from 'fs/promises';
 import { createReadStream, createWriteStream, existsSync } from 'fs';
-import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import * as crypto from 'crypto';
 
 console.log("UPLOAD ROUTE HANDLER LOADED - CHUNKED V1");
@@ -43,20 +42,6 @@ function hashPassword(password: string): string {
     .createHash('sha256')
     .update(password + ENCRYPTION_KEY)
     .digest('hex');
-}
-
-// Function to clean up temporary files
-async function cleanupTempDir(tempFileDir: string) {
-  try {
-    if (existsSync(tempFileDir)) {
-      await rm(tempFileDir, { recursive: true, force: true });
-      console.log(`Temporary directory cleaned: ${tempFileDir}`);
-    }
-    return true;
-  } catch (error) {
-    console.error('Error cleaning temporary directory:', error);
-    return false;
-  }
 }
 
 async function ensureDirExists(dirPath: string) {
@@ -282,8 +267,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Error processing chunk for ${fileId}:`, error);
+    let AImessage = 'Server error processing chunk.';
+    if (error instanceof Error) {
+      AImessage = error.message;
+    }
     // Update meta to failed if it exists
     if (existsSync(tempMetaPath)) {
         try {
@@ -294,6 +283,6 @@ export async function POST(request: NextRequest) {
             console.error('Error updating temp metadata to failed on main error:', metaError);
         }
     }
-    return NextResponse.json({ success: false, error: 'Server error processing chunk: ' + error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: `Server error processing chunk: ${AImessage}` }, { status: 500 });
   }
 } 

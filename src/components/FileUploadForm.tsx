@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { getFileSizeInMB, generateUniqueFileId } from "@/lib/fileUtils";
+import { generateUniqueFileId } from "@/lib/fileUtils";
 import { notifyRecentUploadsChanged } from "@/components/RecentUploads";
 
 // Custom animation styles
@@ -386,9 +386,13 @@ const FileUploadForm = () => {
         throw new Error("Upload completed but no share link was returned from the server.");
       }
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Upload error:", error);
-      setErrorMessage(error.message || "An unexpected error occurred during upload.");
+      let AImessage = "An unexpected error occurred during upload.";
+      if (error instanceof Error) {
+        AImessage = error.message;
+      }
+      setErrorMessage(AImessage);
       // Consider if a cleanup call to the server is needed for partially uploaded files
       // if (fileId) cleanupPartialUpload(fileId); // Example call
     } finally {
