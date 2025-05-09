@@ -30,14 +30,27 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
         {/* Modal content */}
         <div className="p-4 max-h-[70vh] overflow-y-auto">
           <div className="space-y-6">
-            {/* Version 3.0.2 */}
+            {/* Version 3.1.0 */}
             <div className="space-y-2">
               <h4 className="text-blue-400 font-semibold flex items-center">
                 <span className="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                Version 3.0.2
+                Version 3.1.0
                 <span className="ml-2 text-xs font-normal text-zinc-500">
                   Current
                 </span>
+              </h4>
+              <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
+                <p>• Fixed client-side file chunking for large file uploads.</p>
+                <p>• Added SHA-256 hash verification for each uploaded chunk (client-side and server-side) to ensure data integrity.</p>
+                <p>• Overhauled server-side upload logic to support chunked uploads, assembly, and processing.</p>
+              </div>
+            </div>
+            
+            {/* Version 3.0.2 */}
+            <div className="space-y-2">
+              <h4 className="text-zinc-400 font-semibold flex items-center">
+                <span className="inline-block w-2 h-2 bg-zinc-400 rounded-full mr-2"></span>
+                Version 3.0.2
               </h4>
               <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
                 <p>• Redesigned URL structure, now using a single format for file sharing</p>
@@ -84,7 +97,7 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
         
         {/* Modal footer */}
         <div className="p-4 border-t border-zinc-700 text-center text-xs text-zinc-500">
-          For more details, visit our GitHub repository
+          For more details, visit our <a href="https://github.com/mre31/nextshare" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 hover:underline focus:outline-none transition">GitHub</a> repository.
         </div>
       </div>
     </div>

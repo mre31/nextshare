@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { getFileSizeInMB, splitFileIntoChunks, generateUniqueFileId } from "@/lib/fileUtils";
+import { getFileSizeInMB, generateUniqueFileId } from "@/lib/fileUtils";
 import { notifyRecentUploadsChanged } from "@/components/RecentUploads";
 
 // Custom animation styles
@@ -137,13 +137,19 @@ const saveRecentUpload = (fileData: {
   localStorage.setItem("recentUploads", JSON.stringify(recentUploads));
 };
 
+// Helper function to calculate SHA-256 hash of an ArrayBuffer
+async function calculateFileChunkHash(chunkBuffer: ArrayBuffer): Promise<string> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', chunkBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
 const FileUploadForm = () => {
   const [file, setFile] = useState<File | null>(null);
   const [duration, setDuration] = useState<string>("24");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [uploadedChunks, setUploadedChunks] = useState(0);
-  const [totalChunks, setTotalChunks] = useState(0);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -184,12 +190,19 @@ const FileUploadForm = () => {
     // Cleanup function
     return () => {
       if (currentFileId && !uploadSuccess) {
-        cleanupTempFiles(currentFileId);
+        // Bu fonksiyon sunucu tarafında geçici dosyaları temizlemek için hala geçerli olabilir,
+        // özellikle stream yarıda kesilirse veya hata oluşursa.
+        // Ancak, sunucu tarafı artık kendi temizliğini büyük ölçüde yönetiyor.
+        // İstemci tarafında bir iptal butonu eklenirse bu çağrı yine de önemli olabilir.
+        // cleanupTempFiles(currentFileId); // Şimdilik yoruma alalım, sunucu tarafı zaten yapıyor.
       }
     };
   }, [currentFileId, uploadSuccess]);
 
-  // Function to clean up temporary files
+  // Function to clean up temporary files - Bu fonksiyonun istemci tarafı implementasyonu kaldırılabilir
+  // Sunucu tarafı zaten /api/cleanup/temp üzerinden bir temizleme mekanizmasına sahip olabilir
+  // veya yeni stream mekanizması kendi içinde hataları yönetir.
+  /*
   const cleanupTempFiles = async (fileId: string) => {
     try {
       const response = await fetch(`/api/cleanup/temp?fileId=${fileId}`, {
@@ -205,6 +218,7 @@ const FileUploadForm = () => {
       console.error("Error cleaning temporary files:", error);
     }
   };
+  */
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -212,6 +226,7 @@ const FileUploadForm = () => {
       setErrorMessage(null);
       setShareLink(null);
       setUploadSuccess(false);
+      setProgress(0); // Dosya değiştiğinde progress'i sıfırla
     }
   };
 
@@ -235,6 +250,7 @@ const FileUploadForm = () => {
       setErrorMessage(null);
       setShareLink(null);
       setUploadSuccess(false);
+      setProgress(0); // Dosya değiştiğinde progress'i sıfırla
     }
   }, []);
 
@@ -242,7 +258,6 @@ const FileUploadForm = () => {
     const date = new Date();
     date.setHours(date.getHours() + durationHours);
     
-    // Format: "14 March 2025, 01:25"
     return date.toLocaleString('en-GB', {
       day: 'numeric',
       month: 'long',
@@ -254,216 +269,143 @@ const FileUploadForm = () => {
   };
 
   const copyToClipboard = () => {
-    
-    const apiUrl = `${window.location.origin}/api/${shareLink}`;
-    
-    navigator.clipboard.writeText(apiUrl)
+    const shareUrl = `${window.location.origin}/${shareLink}`;
+    navigator.clipboard.writeText(shareUrl)
       .then(() => {
-        // Successfully copied
         if (linkRef.current) {
           linkRef.current.select();
         }
-        
-        // Update button text
-        setCopyButtonText("Direct Download Link Copied!");
-        
-        // Revert back after 3 seconds
+        setCopyButtonText("Share Link Copied!");
         setTimeout(() => {
           setCopyButtonText("Copy Direct Download Link");
         }, 3000);
       })
       .catch(err => {
-        console.error('Failed to copy:', err);
+        console.error('Failed to copy share link:', err);
       });
-  };
-
-  const uploadChunk = async (
-    chunk: Blob, 
-    fileId: string, 
-    fileName: string, 
-    chunkIndex: number, 
-    chunksCount: number,
-    durationHours: number,
-    isEncrypted: boolean,
-    password: string
-  ) => {
-    const formData = new FormData();
-    formData.append("chunk", chunk);
-    formData.append("fileId", fileId);
-    formData.append("fileName", fileName);
-    formData.append("chunkIndex", chunkIndex.toString());
-    formData.append("totalChunks", chunksCount.toString());
-    formData.append("duration", durationHours.toString());
-    formData.append("isEncrypted", isEncrypted.toString());
-    
-    // Only send password if encryption is enabled
-    if (isEncrypted && password) {
-      formData.append("password", password);
-    }
-
-    try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "File upload error");
-      }
-
-      const data = await response.json();
-      
-      // If all chunks are received and the file is merged
-      if (data.shareLink) {
-        setShareLink(data.shareLink);
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
-    }
   };
 
   const validatePassword = (): boolean => {
-    // Clear previous error
     setPasswordError(null);
-    
-    // If encryption is not enabled, no validation needed
     if (!isEncrypted) return true;
-    
-    // Validate password - must be exactly 4 digits
     if (!/^\d{4}$/.test(password)) {
       setPasswordError("Password must be exactly 4 digits");
       return false;
     }
-    
     return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!file) return;
-    
-    // Validate password if encryption is enabled
-    if (!validatePassword()) return;
-    
+    if (!file) {
+      setErrorMessage("Please select a file first.");
+      return;
+    }
+
+    if (isEncrypted && !validatePassword()) {
+      return;
+    }
+
     setUploading(true);
     setProgress(0);
     setErrorMessage(null);
     setShareLink(null);
     setUploadSuccess(false);
-    
+    setCurrentFileId(null);
+
+    const fileId = generateUniqueFileId();
+    setCurrentFileId(fileId);
+
+    const calculatedExpiryDate = calculateExpiryDate(parseInt(duration));
+    setExpiryDate(calculatedExpiryDate);
+
+    const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk size
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let finalShareLink = null;
+
     try {
-      const fileSize = getFileSizeInMB(file);
-      const chunks = splitFileIntoChunks(file, 90); // Split into 90MB chunks
-      const fileId = generateUniqueFileId();
-      
-      // Set the file ID so the cleanup function can use it
-      setCurrentFileId(fileId);
-      
-      const durationHours = parseInt(duration, 10);
-      
-      setTotalChunks(chunks.length);
-      setUploadedChunks(0);
-      
-      console.log(`File: ${file.name}, Size: ${fileSize.toFixed(2)} MB, Number of chunks: ${chunks.length}, Encrypted: ${isEncrypted}`);
-      
-      // Her 3 chunks için paralel yükleme yapalım, böylece daha hızlı olacak
-      // ama sunucuyu da aşırı yüklemeyecek
-      for (let i = 0; i < chunks.length; i += 3) {
-        const uploadPromises = [];
-        
-        // Bir seferde 3 chunk yükleyelim (veya kalan ne kadarsa)
-        for (let j = 0; j < 3 && i + j < chunks.length; j++) {
-          const chunkIndex = i + j;
-          uploadPromises.push(
-            uploadChunk(
-              chunks[chunkIndex], 
-              fileId, 
-              file.name, 
-              chunkIndex, 
-              chunks.length, 
-              durationHours,
-              isEncrypted,
-              password
-            )
-          );
+      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+        const start = chunkIndex * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunkBlob = file.slice(start, end);
+        const chunkBuffer = await chunkBlob.arrayBuffer(); // Get ArrayBuffer for hashing
+        const chunkHash = await calculateFileChunkHash(chunkBuffer); // Calculate hash
+
+        const formData = new FormData();
+        formData.append("fileId", fileId);
+        formData.append("fileName", file.name);
+        formData.append("fileSize", file.size.toString());
+        formData.append("duration", duration);
+        formData.append("isEncrypted", String(isEncrypted));
+        if (isEncrypted && password) {
+          formData.append("password", password);
         }
-        
-        // Tüm paralel yüklemelerin tamamlanmasını bekleyelim
-        await Promise.all(uploadPromises);
-        
-        // Tamamlanan chunkları güncelle
-        const completedChunks = Math.min(i + 3, chunks.length);
-        setUploadedChunks(completedChunks);
-        setProgress(Math.round((completedChunks / chunks.length) * 100));
-      }
-      
-      console.log("File successfully uploaded");
-      
-      // Prepare data for the successful upload screen
-      const expiry = calculateExpiryDate(durationHours);
-      setExpiryDate(expiry);
-      
-      // Share link - now we just use the ID
-      setShareLink(fileId);
-      
-      // Son yüklemelere kaydet
-      if (fileId) {
-        const currentDate = new Date().toLocaleString('en-GB', {
-          day: 'numeric',
-          month: 'long',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
+        formData.append("chunk", chunkBlob, `${file.name}.chunk${chunkIndex}`); // Send the original Blob
+        formData.append("chunkIndex", chunkIndex.toString());
+        formData.append("totalChunks", totalChunks.toString());
+        formData.append("chunkHash", chunkHash); // Add chunk hash to FormData
+
+        // Remove Content-Type header; FormData will set it to multipart/form-data with boundary
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+          // Headers are automatically set by FormData, including Content-Type
         });
-        
-        saveRecentUpload({
-          id: fileId,
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(`Upload failed at chunk ${chunkIndex + 1}/${totalChunks}: ${response.status} ${errorData || response.statusText}`);
+        }
+
+        const currentProgress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+        setProgress(currentProgress);
+
+        // If this is the last chunk, the server might return the final share link
+        if (chunkIndex === totalChunks - 1) {
+          const result = await response.json();
+          if (result.url) {
+            finalShareLink = result.url;
+          }
+        }
+      }
+
+      if (finalShareLink) {
+        setShareLink(finalShareLink);
+        setUploadSuccess(true);
+        const newUploadData = {
+          id: fileId, // Store fileId which is used in the shareLink
           name: file.name,
-          date: currentDate,
-          expiryDate: expiry,
-          isEncrypted: isEncrypted
-        });
-        
-        // Recent Uploads widget'ını güncelle
-        try {
-          notifyRecentUploadsChanged();
-        } catch {
-          console.log("Recent uploads notification failed");
-        }
+          date: new Date().toISOString(),
+          expiryDate: calculatedExpiryDate,
+          isEncrypted: isEncrypted,
+        };
+        saveRecentUpload(newUploadData);
+        notifyRecentUploadsChanged();
+      } else {
+        // This case should ideally not be reached if the last chunk response is handled correctly
+        throw new Error("Upload completed but no share link was returned from the server.");
       }
-      
-      // Set success state
-      setUploadSuccess(true);
-      setFile(null);
-    } catch (error) {
-      console.error("File upload error:", error);
-      setErrorMessage((error as Error).message || "An error occurred while uploading the file");
-      
-      // Clean up temporary files if there's a fileId in case of error
-      if (currentFileId) {
-        await cleanupTempFiles(currentFileId);
-      }
+
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      setErrorMessage(error.message || "An unexpected error occurred during upload.");
+      // Consider if a cleanup call to the server is needed for partially uploaded files
+      // if (fileId) cleanupPartialUpload(fileId); // Example call
     } finally {
       setUploading(false);
+      if (isEncrypted) {
+        setPassword(''); // Clear password after upload attempt
+      }
     }
   };
 
   const resetForm = () => {
-    // If there's an upload and it's not successful, clean up temporary files
-    if (currentFileId && !uploadSuccess) {
-      cleanupTempFiles(currentFileId);
-    }
-    
-    // Reset the file input element value so it can be reused
+    // Sunucu tarafı stream hatalarında veya tamamlanmamış yüklemelerde kendi temizliğini yapar.
+    // Bu yüzden currentFileId ile özel bir cleanup çağırmaya gerek kalmayabilir.
     const fileInput = document.getElementById('file-input') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
     }
-    
     setCurrentFileId(null);
     setFile(null);
     setUploadSuccess(false);
@@ -472,16 +414,13 @@ const FileUploadForm = () => {
     setIsEncrypted(false);
     setPassword('');
     setPasswordError(null);
+    setProgress(0);
   };
 
   return (
     <div className="bg-zinc-800 rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
-      {/* Custom animation styles */}
       <style dangerouslySetInnerHTML={{ __html: animationStyles }} />
-      
-      {/* Container with animation between form and success view */}
       <div className="relative min-h-[500px]">
-        {/* Upload form */}
         <div 
           className={`
             form-to-success-transition
@@ -492,9 +431,7 @@ const FileUploadForm = () => {
           `}
         >
           <h2 className="text-white text-2xl font-bold text-center mb-8">Share Your File</h2>
-          
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* File upload area */}
             <div 
               className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
                 ${dragActive ? 'border-blue-500 bg-zinc-700/20' : 'border-blue-500/60 hover:border-blue-500'}
@@ -512,7 +449,6 @@ const FileUploadForm = () => {
                 onChange={handleFileChange}
                 disabled={uploading}
               />
-              
               <div className="h-14 flex flex-col items-center justify-center">
                 {file ? (
                   <div className="text-zinc-300 animate-fade-in transition-all duration-300 ease-in-out">
@@ -534,7 +470,6 @@ const FileUploadForm = () => {
               </div>
             </div>
             
-            {/* Active duration */}
             <div className="flex items-center justify-between bg-zinc-700/30 rounded-lg p-3">
               <div>
                 <Label htmlFor="duration" className="text-zinc-300 font-medium">Active duration</Label>
@@ -560,7 +495,6 @@ const FileUploadForm = () => {
               </div>
             </div>
             
-            {/* Encryption toggle */}
             <div className="flex flex-col space-y-4">
               <div className="bg-zinc-700/30 rounded-lg p-3">
                 <div className="flex items-center justify-between">
@@ -578,8 +512,6 @@ const FileUploadForm = () => {
                     />
                   </div>
                 </div>
-                
-                {/* Password input field - with smooth animation */}
                 <div 
                   className={`
                     overflow-hidden transition-all duration-300 ease-in-out
@@ -616,7 +548,6 @@ const FileUploadForm = () => {
               </div>
             </div>
             
-            {/* Progress bar - animated entry */}
             <div 
               className={`
                 overflow-hidden transition-all duration-500 ease-in-out
@@ -626,19 +557,17 @@ const FileUploadForm = () => {
               <div className="progress-container-enter">
                 <ProgressBar progress={progress} />
                 <p className="text-sm text-center text-zinc-400">
-                  {uploadedChunks}/{totalChunks} chunks uploaded
+                  {uploading ? `Uploading... ${progress}%` : (file ? "Ready to upload" : "Select a file")}
                 </p>
               </div>
             </div>
             
-            {/* Error message */}
             {errorMessage && !uploading && (
               <div className="p-3 bg-red-900/30 border border-red-700 rounded-md">
                 <p className="text-red-400 text-sm">Error: {errorMessage}</p>
               </div>
             )}
             
-            {/* Upload button */}
             <Button
               type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200 hover:scale-[1.02] cursor-pointer"
@@ -651,7 +580,6 @@ const FileUploadForm = () => {
           </form>
         </div>
         
-        {/* Success view - Always render but conditionally show */}
         <div 
           className={`
             form-to-success-transition success-view-animation-ready w-full overflow-hidden
@@ -664,23 +592,16 @@ const FileUploadForm = () => {
         >
           {shareLink && (
             <div className="flex flex-col items-center text-center">
-              {/* Green check icon */}
               <div className={`${showSuccessItems ? 'animate-slide-down slide-1' : 'opacity-0'}`}>
                 <CheckIcon />
               </div>
-              
-              {/* Title */}
               <div className={`${showSuccessItems ? 'animate-slide-down slide-2' : 'opacity-0'}`}>
                 <h2 className="text-white text-2xl font-bold mb-4">File uploaded successfully!</h2>
               </div>
-              
-              {/* Description */}
               <div className={`${showSuccessItems ? 'animate-slide-down slide-3' : 'opacity-0'}`}>
                 <p className="text-zinc-300 mb-4">Your file is ready to share. The link will be valid until:</p>
                 <p className="text-zinc-300 mb-6 font-medium">{expiryDate}</p>
               </div>
-              
-              {/* Show if file is encrypted */}
               {isEncrypted && (
                 <div className={`mb-6 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-md ${showSuccessItems ? 'animate-slide-down slide-3' : 'opacity-0'}`}>
                   <p className="text-yellow-300 font-medium">This file is encrypted</p>
@@ -689,8 +610,6 @@ const FileUploadForm = () => {
                   </p>
                 </div>
               )}
-              
-              {/* Share link box */}
               <div className={`border-2 border-dashed border-blue-500/60 rounded-lg p-4 w-full mb-6 ${showSuccessItems ? 'animate-slide-down slide-4' : 'opacity-0'}`}>
                 <p className="text-zinc-300 mb-2">Share this link:</p>
                 <input
@@ -705,8 +624,6 @@ const FileUploadForm = () => {
                   Click on the link to select it, then press Ctrl+C (or Cmd+C on Mac) to copy
                 </p>
               </div>
-              
-              {/* Buttons */}
               <div className={`flex flex-col w-full gap-3 ${showSuccessItems ? 'animate-slide-down slide-5' : 'opacity-0'}`}>
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
@@ -714,7 +631,6 @@ const FileUploadForm = () => {
                 >
                   {copyButtonText}
                 </Button>
-                
                 <Button 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white transition-all cursor-pointer"
                   onClick={resetForm}

@@ -33,8 +33,8 @@ export function stopCleanupScheduler() {
 
 // Run cleanup API to remove expired files
 function runCleanupTask() {
-  // Sabit host ve token değerleri
-  const host = 'http://localhost:5000';
+  const port = process.env.PORT || '5000';
+  const host = `http://localhost:${port}`;
   const cleanupToken = 'nextshare-cleanup-token';
   
   // Build the URL with token
