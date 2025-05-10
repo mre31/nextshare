@@ -301,6 +301,7 @@ const FileUploadForm = () => {
       setErrorMessage("Please select a file first.");
       return;
     }
+    const currentFile = file;
 
     if (isEncrypted && !validatePassword()) {
       return;
@@ -320,71 +321,170 @@ const FileUploadForm = () => {
     setExpiryDate(calculatedExpiryDate);
 
     const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunk size
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    let finalShareLink = null;
+    const totalChunks = Math.ceil(currentFile.size / CHUNK_SIZE);
+    let finalShareLink: string | null = null;
+    let chunksSuccessfullyUploaded = 0;
+
+    // Aynı anda en fazla kaç chunk yükleneceği
+    const MAX_CONCURRENT_UPLOADS = 4; 
+
+    console.log("Preparing chunks and calculating hashes in parallel...");
 
     try {
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        const start = chunkIndex * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunkBlob = file.slice(start, end);
-        const chunkBuffer = await chunkBlob.arrayBuffer(); // Get ArrayBuffer for hashing
-        const chunkHash = await calculateFileChunkHash(chunkBuffer); // Calculate hash
+      // 1. Chunk'ları hazırla ve hash'lerini paralel olarak hesapla (öncekiyle aynı)
+      const hashPromises = [];
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, currentFile.size);
+        const chunkBlob = currentFile.slice(start, end);
+        hashPromises.push(
+          (async (currentIndex: number) => {
+            const chunkBuffer = await chunkBlob.arrayBuffer();
+            const chunkHash = await calculateFileChunkHash(chunkBuffer);
+            return { chunkBlob, chunkHash, chunkIndex: currentIndex, originalFileName: currentFile.name };
+          })(i)
+        );
+      }
+      
+      const preparedChunks = await Promise.all(hashPromises);
+      console.log("All chunks prepared and hashes calculated.");
+      setProgress(1); // Hashing bitti, yükleme başlıyor (veya %0'da kalabilir)
 
-        const formData = new FormData();
-        formData.append("fileId", fileId);
-        formData.append("fileName", file.name);
-        formData.append("fileSize", file.size.toString());
-        formData.append("duration", duration);
-        formData.append("isEncrypted", String(isEncrypted));
-        if (isEncrypted && password) {
-          formData.append("password", password);
-        }
-        formData.append("chunk", chunkBlob, `${file.name}.chunk${chunkIndex}`); // Send the original Blob
-        formData.append("chunkIndex", chunkIndex.toString());
-        formData.append("totalChunks", totalChunks.toString());
-        formData.append("chunkHash", chunkHash); // Add chunk hash to FormData
+      // 2. Hazırlanan chunk'ları SINIRLI PARALELLİKTE yükle
+      if (totalChunks > 0) {
+        await new Promise<void>((resolve, reject) => {
+          let currentlyUploading = 0;
+          let nextChunkIndexToUpload = 0;
+          // chunkIndex'e göre sıralı olduğundan emin olalım (Promise.all sırayı korur ama yine de)
+          preparedChunks.sort((a, b) => a.chunkIndex - b.chunkIndex);
 
-        // Remove Content-Type header; FormData will set it to multipart/form-data with boundary
-        const response = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-          // Headers are automatically set by FormData, including Content-Type
-        });
+          function uploadNextChunk() {
+            if (chunksSuccessfullyUploaded === totalChunks) {
+              resolve();
+              return;
+            }
 
-        if (!response.ok) {
-          const errorData = await response.text();
-          throw new Error(`Upload failed at chunk ${chunkIndex + 1}/${totalChunks}: ${response.status} ${errorData || response.statusText}`);
-        }
+            while (currentlyUploading < MAX_CONCURRENT_UPLOADS && nextChunkIndexToUpload < totalChunks) {
+              const preparedChunk = preparedChunks[nextChunkIndexToUpload];
+              if (!preparedChunk) {
+                // Bu durum olmamalı ama bir güvenlik kontrolü
+                console.warn("Undefined prepared chunk at index", nextChunkIndexToUpload);
+                nextChunkIndexToUpload++; // Hatalı index'i atla
+                continue;
+              }
+              nextChunkIndexToUpload++;
+              currentlyUploading++;
 
-        const currentProgress = Math.round(((chunkIndex + 1) / totalChunks) * 100);
-        setProgress(currentProgress);
+              const { chunkBlob, chunkHash, chunkIndex, originalFileName } = preparedChunk;
+              
+              console.log(`Starting upload for chunk ${chunkIndex + 1}/${totalChunks}`);
+              const formData = new FormData();
+              formData.append("fileId", fileId);
+              formData.append("fileName", originalFileName);
+              formData.append("fileSize", currentFile.size.toString());
+              formData.append("duration", duration);
+              formData.append("isEncrypted", String(isEncrypted));
+              if (isEncrypted && password) {
+                formData.append("password", password);
+              }
+              formData.append("chunk", chunkBlob, `${originalFileName}.chunk${chunkIndex}`);
+              formData.append("chunkIndex", chunkIndex.toString());
+              formData.append("totalChunks", totalChunks.toString());
+              formData.append("chunkHash", chunkHash);
 
-        // If this is the last chunk, the server might return the final share link
-        if (chunkIndex === totalChunks - 1) {
-          const result = await response.json();
-          if (result.url) {
-            finalShareLink = result.url;
+              fetch("/api/upload", { method: "POST", body: formData })
+                .then(async response => {
+                  currentlyUploading--;
+                  if (!response.ok) {
+                    const errorData = await response.text();
+                    const errorMsg = `Upload failed for chunk ${chunkIndex + 1}/${totalChunks}: ${response.status} ${errorData || response.statusText}`;
+                    console.error(errorMsg);
+                    // Bir chunk hata verdiğinde tüm yüklemeyi durdur
+                    // Diğer devam eden fetch'ler yine de tamamlanabilir veya iptal edilebilir (AbortController ile)
+                    // Şimdilik sadece reject ediyoruz.
+                    return reject(new Error(errorMsg)); 
+                  }
+                  chunksSuccessfullyUploaded++;
+                  const currentProgress = Math.round((chunksSuccessfullyUploaded / totalChunks) * 100);
+                  setProgress(currentProgress);
+                  console.log(`Chunk ${chunkIndex + 1}/${totalChunks} uploaded. Progress: ${currentProgress}%`);
+
+                  // Son chunk ise ve başarılıysa URL'i al
+                  if (chunksSuccessfullyUploaded === totalChunks) {
+                    // Sunucudan gelen yanıtı JSON olarak işle
+                    // Bu fetch'in sonucu da diğerleriyle aynı anda gelebilir, bu yüzden son chunk olup olmadığını kontrol etmeliyiz.
+                    // Gerçek finalShareLink ataması Promise çözüldükten sonra yapılmalı.
+                    response.json().then(result => {
+                        if (result.url) {
+                            finalShareLink = result.url; 
+                            console.log("Final share link received from server on last chunk:", finalShareLink);
+                        } else {
+                            console.error("Last chunk response did not contain a URL:", result);
+                            // finalShareLink null kalırsa, dışarıdaki kontrol bunu yakalar.
+                        }
+                        uploadNextChunk(); // Tüm chunklar yüklendi, resolve() çağrılacak.
+                    }).catch(jsonError => {
+                        console.error("Error parsing JSON from last chunk response:", jsonError);
+                        reject(new Error("Failed to parse server response for the final chunk."));
+                    });
+                  } else {
+                    uploadNextChunk(); // Bir sonraki chunk'ı yüklemeye başla
+                  }
+                })
+                .catch(networkError => {
+                  currentlyUploading--;
+                  console.error(`Network error during upload of chunk ${chunkIndex + 1}/${totalChunks}:`, networkError);
+                  reject(networkError); // Bir ağ hatasında tüm yüklemeyi durdur
+                });
+            }
           }
+          uploadNextChunk(); // İlk chunk(lar)ı yüklemeye başla
+        });
+      } else if (totalChunks === 0 && currentFile && currentFile.size === 0) {
+        if (currentFile) {
+            const formData = new FormData();
+            formData.append("fileId", fileId);
+            formData.append("fileName", currentFile.name);
+            formData.append("fileSize", "0");
+            formData.append("duration", duration);
+            formData.append("isEncrypted", String(isEncrypted));
+            if (isEncrypted && password) formData.append("password", password);
+            formData.append("totalChunks", "1"); 
+            formData.append("chunkIndex", "0");
+            
+            console.log("File is empty. Not attempting chunked upload. This scenario might need specific handling.");
+            setErrorMessage("Cannot upload an empty file.");
+            setUploading(false);
+            return; 
+        } else {
+            // Bu bloğa normalde girilmemeli, çünkü dışarıda file kontrolü var
+            setErrorMessage("File not found while handling empty file case.");
+            setUploading(false);
+            return;
         }
       }
 
-      if (finalShareLink) {
+      // Tüm yüklemeler tamamlandıktan sonra finalShareLink kontrolü
+      if (chunksSuccessfullyUploaded === totalChunks && finalShareLink) {
         setShareLink(finalShareLink);
         setUploadSuccess(true);
         const newUploadData = {
-          id: fileId, // Store fileId which is used in the shareLink
-          name: file.name,
+          id: fileId,
+          name: currentFile.name,
           date: new Date().toISOString(),
           expiryDate: calculatedExpiryDate,
           isEncrypted: isEncrypted,
         };
         saveRecentUpload(newUploadData);
         notifyRecentUploadsChanged();
-      } else {
-        // This case should ideally not be reached if the last chunk response is handled correctly
-        throw new Error("Upload completed but no share link was returned from the server.");
+      } else if (chunksSuccessfullyUploaded === totalChunks && !finalShareLink && totalChunks > 0) {
+        // Tüm chunklar yüklendi ama URL yok (bu durum yukarıda da loglanmış olmalı)
+        throw new Error("All chunks uploaded but the server did not provide a share link.");
+      } else if (chunksSuccessfullyUploaded !== totalChunks && totalChunks > 0) {
+        // Beklenmedik bir durum, tüm chunklar yüklenemedi ama hata da fırlatılmadı?
+        throw new Error("Upload did not complete fully, but no specific error was caught.");
       }
+      // totalChunks === 0 durumu yukarıda handle edildi (şimdilik hata olarak)
 
     } catch (error: unknown) {
       console.error("Upload error:", error);
@@ -555,13 +655,13 @@ const FileUploadForm = () => {
             <div 
               className={`
                 overflow-hidden transition-all duration-500 ease-in-out
-                ${uploading ? 'max-h-24 opacity-100 my-6' : 'max-h-0 opacity-0 my-0'}
+                ${uploading ? 'max-h-32 opacity-100 my-6' : 'max-h-0 opacity-0 my-0'}
               `}
             >
               <div className="progress-container-enter">
                 <ProgressBar progress={progress} />
-                <p className="text-sm text-center text-zinc-400">
-                  {uploading ? `Uploading... ${progress}%` : (file ? "Ready to upload" : "Select a file")}
+                <p className="text-sm text-center text-yellow-400">
+                  {uploading ? `Please don't leave the page until upload finishes.` : (file ? "Ready to upload" : "Select a file")}
                 </p>
               </div>
             </div>
