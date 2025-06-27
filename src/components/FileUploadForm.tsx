@@ -269,7 +269,7 @@ const FileUploadForm = () => {
   };
 
   const copyToClipboard = () => {
-    const shareUrl = `${window.location.origin}/${shareLink}`;
+    const shareUrl = `${window.location.origin}/api/download/${shareLink}`;
     navigator.clipboard.writeText(shareUrl)
       .then(() => {
         if (linkRef.current) {

@@ -103,6 +103,12 @@ NextShare is a modern, secure, and user-friendly file sharing platform built wit
 
 ## Changelog
 
+### Version 3.2.0
+- **SEO & UX Improvement**: The file download page now dynamically generates metadata (title and description) based on file details (name, size, expiration), improving SEO and user experience.
+- **Architectural Refactor**: Refactored the download page to use Next.js Server Components, fetching data on the server for faster page loads and better performance.
+- **Enhanced Security**: The password verification for protected files now occurs on the backend via a POST request, preventing the password from being exposed in the URL.
+- **Corrected "Direct Link"**: The "Copy Direct Download Link" button now correctly copies the direct API download link to the clipboard.
+
 ### Version 3.0.1 (Current)
 - Added Recent Uploads widget
 - Improved file card design

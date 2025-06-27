@@ -1,16 +1,18 @@
-"use client";
-
-import { useState, useEffect } from 'react';
+import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LocaleDate from '@/components/LocaleDate';
+import { statSync, existsSync } from 'fs';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+import FilePageClient from './FilePageClient'; // İstemci bileşenini import et
 
-// Next.js 15.2+ ile uyumlu params tipi
+// Arayüzler
 interface FilePageProps {
-  params: Promise<{
+  params: {
     fileId: string;
-  }>;
+  };
 }
 
 interface FileInfo {
@@ -24,170 +26,94 @@ interface FileInfo {
   totalChunks?: number;
 }
 
-// Component for password entry
-interface PasswordEntryProps {
-  fileId: string;
-  onDownload: (password: string) => void;
-}
-
-function PasswordEntry({ fileId, onDownload }: PasswordEntryProps) {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// Sunucu tarafı veri getirme fonksiyonu
+async function getFileInfo(fileId: string): Promise<FileInfo | null> {
+  const UPLOADS_DIR = join(process.cwd(), 'uploads');
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!password) {
-      setError('Please enter the password');
-      return;
-    }
-    
-    if (!/^\d{4}$/.test(password)) {
-      setError('Password must be 4 digits');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setError('');
-    
-    try {
-      // Validate password
-      const response = await fetch(`/api/${fileId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Password is correct, trigger download
-        onDownload(password);
-      } else {
-        setError(data.error || 'Invalid password');
-      }
-    } catch (error) {
-      setError('An error occurred. Please try again.');
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (!/^\d{8}$/.test(fileId)) {
+    return null;
+  }
   
-  return (
-    <div className="bg-zinc-700/30 rounded-lg p-5 mb-6">
-      <div className="flex items-center justify-center mb-4">
-        <div className="bg-yellow-500/20 p-2 rounded-full">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-500">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-          </svg>
-        </div>
-      </div>
-      
-      <h3 className="text-lg font-semibold text-center text-white mb-2">
-        This file is password protected
-      </h3>
-      <p className="text-sm text-center text-zinc-300 mb-4">
-        Enter the 4-digit password to download the file.
-      </p>
-      
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <Input
-            type="text"
-            inputMode="numeric"
-            pattern="\d{4}"
-            maxLength={4}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter 4-digit password"
-            className="bg-zinc-800 border-zinc-600 text-zinc-200 text-center text-xl tracking-widest"
-            disabled={isSubmitting}
-          />
-          {error && <p className="text-red-400 text-xs mt-1">{error}</p>}
-        </div>
-        
-        <Button 
-          type="submit" 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Verifying...' : 'Unlock File'}
-        </Button>
-      </form>
-    </div>
-  );
-}
-
-export default function FilePage({ params }: FilePageProps) {
-  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [fileId, setFileId] = useState<string>('');
+  const fileDir = join(UPLOADS_DIR, fileId);
+  const metaPath = join(fileDir, 'meta.json');
   
-  // Set the fileId from params at component mount
-  useEffect(() => {
-    const resolveParams = async () => {
+  if (!existsSync(metaPath)) {
+    return null;
+  }
+  
+  try {
+    const metaRaw = await readFile(metaPath, 'utf-8');
+    const meta = JSON.parse(metaRaw);
+    
+    const expired = meta.expiresAt < Date.now();
+    
+    let fileSize = "Unknown";
+    if (meta.status === 'completed') {
       try {
-        // Use Promise.resolve to handle both Promise and non-Promise params
-        const resolvedParams = await Promise.resolve(params);
-        setFileId(resolvedParams.fileId);
-      } catch (err) {
-        console.error('Error resolving params:', err);
-        setError('Failed to load file information');
-        setLoading(false);
-      }
-    };
-    
-    resolveParams();
-  }, [params]);
-  
-  // Fetch file info when fileId is available
-  useEffect(() => {
-    if (!fileId) return;
-    
-    const fetchFileInfo = async () => {
-      try {
-        const response = await fetch(`/api/file-info/${fileId}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch file information');
+        const filePath = join(fileDir, meta.fileName);
+        if (existsSync(filePath)) {
+          const stats = statSync(filePath);
+          const bytes = stats.size;
+          if (bytes < 1024) fileSize = `${bytes} B`;
+          else if (bytes < 1024 * 1024) fileSize = `${(bytes / 1024).toFixed(2)} KB`;
+          else if (bytes < 1024 * 1024 * 1024) fileSize = `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+          else fileSize = `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
         }
-        
-        const data = await response.json();
-        setFileInfo(data);
-      } catch (err) {
-        setError('Failed to load file information');
-        console.error(err);
-      } finally {
-        setLoading(false);
+      } catch (error) {
+        console.error("Error calculating file size:", error);
       }
+    }
+
+    return {
+      fileName: meta.fileName,
+      fileSize,
+      expiresAt: meta.expiresAt,
+      isEncrypted: meta.isEncrypted || false,
+      expired,
+      status: meta.status || 'pending',
+      receivedChunks: meta.receivedChunks,
+      totalChunks: meta.totalChunks,
     };
-    
-    fetchFileInfo();
-  }, [fileId]);
-  
-  const handlePasswordSubmit = (password: string) => {
-    if (!fileId) return;
-    
-    // Create download URL with password
-    const downloadUrl = `/api/${fileId}?password=${password}`;
-    
-    // Create a temporary link and click it to start download
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileInfo?.fileName || 'download';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error reading file metadata:', error);
+    return null;
+  }
+}
+
+// Dinamik metadata oluşturma fonksiyonu
+export async function generateMetadata({ params }: FilePageProps): Promise<Metadata> {
+  const fileInfo = await getFileInfo(params.fileId);
+
+  if (!fileInfo || fileInfo.expired || fileInfo.status !== 'completed') {
+    return {
+      title: 'File Not Found or Expired',
+      description: 'The requested file is not available.',
+    };
+  }
+
+  const expirationDate = new Date(fileInfo.expiresAt).toLocaleString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+
+  return {
+    title: `Download ${fileInfo.fileName}`,
+    description: `Download the file "${fileInfo.fileName}" (${fileInfo.fileSize}). This link is valid until ${expirationDate}.`,
+    openGraph: {
+      title: `Download ${fileInfo.fileName}`,
+      description: `File size: ${fileInfo.fileSize}. Expires on: ${expirationDate}.`,
+      type: 'website',
+    },
   };
-  
-  if (loading) {
-    return (
+}
+
+// Ana sayfa bileşeni (Sunucu Bileşeni)
+export default async function FilePage({ params }: FilePageProps) {
+  const fileInfo = await getFileInfo(params.fileId);
+
+  // Yükleniyor durumu (normalde anlık olmalı)
+  if (fileInfo === undefined) {
+     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
         <div className="bg-zinc-800 rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
           <div className="flex justify-center">
@@ -198,14 +124,15 @@ export default function FilePage({ params }: FilePageProps) {
       </div>
     );
   }
-  
-  if (error || !fileInfo) {
+
+  // Hata veya bulunamama durumu
+  if (!fileInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
         <div className="bg-zinc-800 rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
           <h2 className="text-red-400 text-2xl font-bold text-center mb-4">File Not Found</h2>
           <div className="text-center text-zinc-300 mb-6">
-            <p>The file you&apos;re looking for could not be found or may have expired.</p>
+            <p>The file you're looking for could not be found or may have expired.</p>
           </div>
           <div className="flex justify-center">
             <Link href="/">
@@ -216,7 +143,8 @@ export default function FilePage({ params }: FilePageProps) {
       </div>
     );
   }
-  
+
+  // Süresi dolmuş dosya durumu
   if (fileInfo.expired) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
@@ -234,7 +162,8 @@ export default function FilePage({ params }: FilePageProps) {
       </div>
     );
   }
-  
+
+  // İşlenmekte olan dosya durumu
   if (fileInfo.status !== 'completed') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
@@ -243,7 +172,7 @@ export default function FilePage({ params }: FilePageProps) {
           <div className="text-center text-zinc-300 mb-6">
             <p>The file is still being processed. Please try again later.</p>
             <p className="mt-2 text-sm text-zinc-500">
-              Processed chunks: {fileInfo.receivedChunks?.length}/{fileInfo.totalChunks}
+              Processed chunks: {fileInfo.receivedChunks?.length ?? 0}/{fileInfo.totalChunks}
             </p>
           </div>
           <div className="flex justify-center">
@@ -255,52 +184,8 @@ export default function FilePage({ params }: FilePageProps) {
       </div>
     );
   }
-  
-  // Success state - file download page
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-900 p-4">
-      <div className="bg-zinc-800 rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
-        <h2 className="text-white text-2xl font-bold text-center mb-6">Download File</h2>
-        
-        <div className="bg-zinc-700/50 rounded-lg p-4 mb-6">
-          <div className="space-y-2">
-            <div className="grid grid-cols-[120px_1fr] gap-2">
-              <span className="text-zinc-400">File Name:</span>
-              <span className="text-zinc-200 font-medium truncate" title={fileInfo.fileName}>
-                {fileInfo.fileName.length > 25 
-                  ? fileInfo.fileName.substring(0, 22) + '...' 
-                  : fileInfo.fileName
-                }
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-[120px_1fr] gap-2">
-              <span className="text-zinc-400">File Size:</span>
-              <span className="text-zinc-200">{fileInfo.fileSize}</span>
-            </div>
-            
-            <div className="grid grid-cols-[120px_1fr] gap-2">
-              <span className="text-zinc-400">Available until:</span>
-              <LocaleDate timestamp={fileInfo.expiresAt} />
-            </div>
-          </div>
-        </div>
-        
-        {fileInfo.isEncrypted ? (
-          <PasswordEntry 
-            fileId={fileId} 
-            onDownload={handlePasswordSubmit} 
-          />
-        ) : (
-          <div className="flex justify-center">
-            <a href={`/api/${fileId}`} download={fileInfo.fileName} className="w-full">
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded-md transition-all cursor-pointer">
-                Start Download
-              </Button>
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-} 
+
+  // Başarılı durum -> İstemci bileşenini render et
+  return <FilePageClient fileInfo={fileInfo} fileId={params.fileId} />;
+}
+ 

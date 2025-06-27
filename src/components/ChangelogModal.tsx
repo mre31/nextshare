@@ -30,14 +30,28 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
         {/* Modal content */}
         <div className="p-4 max-h-[70vh] overflow-y-auto">
           <div className="space-y-6">
-            {/* Version 3.1.0 */}
+            {/* Version 3.2.0 */}
             <div className="space-y-2">
               <h4 className="text-blue-400 font-semibold flex items-center">
                 <span className="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                Version 3.1.0
+                Version 3.2.0
                 <span className="ml-2 text-xs font-normal text-zinc-500">
                   Current
                 </span>
+              </h4>
+              <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
+                <p>• <strong>SEO & UX Improvment:</strong> The file download page now dynamically generates metadata (title and description) based on file details (name, size, expiration), improving SEO and user experience.</p>
+                <p>• <strong>Architectural Refactor:</strong> Refactored the download page to use Next.js Server Components, fetching data on the server for faster page loads and better performance.</p>
+                <p>• <strong>Enhanced Security:</strong> The password verification for protected files now occurs on the backend via a POST request, preventing the password from being exposed in the URL.</p>
+                <p>• <strong>Corrected "Direct Link":</strong> The "Copy Direct Download Link" button now correctly copies the direct API download link to the clipboard.</p>
+              </div>
+            </div>
+
+            {/* Version 3.1.0 */}
+            <div className="space-y-2">
+              <h4 className="text-zinc-400 font-semibold flex items-center">
+                <span className="inline-block w-2 h-2 bg-zinc-400 rounded-full mr-2"></span>
+                Version 3.1.0
               </h4>
               <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
                 <p>• Fixed client-side file chunking for large file uploads.</p>
