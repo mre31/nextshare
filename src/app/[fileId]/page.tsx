@@ -1,8 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import LocaleDate from '@/components/LocaleDate';
 import { statSync, existsSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
@@ -134,7 +132,7 @@ export default async function FilePage(props: FilePageProps) {
         <div className="bg-zinc-800 rounded-lg shadow-xl p-8 w-full max-w-md mx-auto">
           <h2 className="text-red-400 text-2xl font-bold text-center mb-4">File Not Found</h2>
           <div className="text-center text-zinc-300 mb-6">
-            <p>The file you're looking for could not be found or may have expired.</p>
+            <p>The file you&apos;re looking for could not be found or may have expired.</p>
           </div>
           <div className="flex justify-center">
             <Link href="/">

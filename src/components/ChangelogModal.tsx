@@ -43,7 +43,7 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
                 <p>• <strong>SEO & UX Improvment:</strong> The file download page now dynamically generates metadata (title and description) based on file details (name, size, expiration), improving SEO and user experience.</p>
                 <p>• <strong>Architectural Refactor:</strong> Refactored the download page to use Next.js Server Components, fetching data on the server for faster page loads and better performance.</p>
                 <p>• <strong>Enhanced Security:</strong> The password verification for protected files now occurs on the backend via a POST request, preventing the password from being exposed in the URL.</p>
-                <p>• <strong>Corrected "Direct Link":</strong> The "Copy Direct Download Link" button now correctly copies the direct API download link to the clipboard.</p>
+                <p>• <strong>Corrected &quot;Direct Link&quot;:</strong> The &quot;Copy Direct Download Link&quot; button now correctly copies the direct API download link to the clipboard.</p>
               </div>
             </div>
 

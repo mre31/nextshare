@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import LocaleDate from '@/components/LocaleDate';
@@ -20,7 +19,7 @@ interface FilePageClientProps {
 }
 
 // Şifre giriş bileşeni
-function PasswordEntry({ fileId, onDownload, fileName }: { fileId: string; onDownload: (password: string) => void; fileName: string; }) {
+function PasswordEntry({ fileId, onDownload }: { fileId: string; onDownload: (password: string) => void; }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,7 +48,7 @@ function PasswordEntry({ fileId, onDownload, fileName }: { fileId: string; onDow
         const data = await response.json();
         setError(data.error || 'Invalid password');
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -122,7 +121,7 @@ export default function FilePageClient({ fileInfo, fileId }: FilePageClientProps
           </div>
         </div>
         {fileInfo.isEncrypted ? (
-          <PasswordEntry fileId={fileId} onDownload={handlePasswordDownload} fileName={fileInfo.fileName} />
+          <PasswordEntry fileId={fileId} onDownload={handlePasswordDownload} />
         ) : (
           <div className="flex justify-center">
             <a href={`/api/download/${fileId}`} download={fileInfo.fileName} className="w-full">
