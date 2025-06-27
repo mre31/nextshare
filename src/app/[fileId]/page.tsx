@@ -10,9 +10,9 @@ import FilePageClient from './FilePageClient'; // İstemci bileşenini import et
 
 // Arayüzler
 interface FilePageProps {
-  params: {
+  params: Promise<{
     fileId: string;
-  };
+  }>;
 }
 
 interface FileInfo {
@@ -81,7 +81,8 @@ async function getFileInfo(fileId: string): Promise<FileInfo | null> {
 }
 
 // Dinamik metadata oluşturma fonksiyonu
-export async function generateMetadata({ params }: FilePageProps): Promise<Metadata> {
+export async function generateMetadata(props: FilePageProps): Promise<Metadata> {
+  const params = await props.params;
   const fileInfo = await getFileInfo(params.fileId);
 
   if (!fileInfo || fileInfo.expired || fileInfo.status !== 'completed') {
@@ -108,7 +109,8 @@ export async function generateMetadata({ params }: FilePageProps): Promise<Metad
 }
 
 // Ana sayfa bileşeni (Sunucu Bileşeni)
-export default async function FilePage({ params }: FilePageProps) {
+export default async function FilePage(props: FilePageProps) {
+  const params = await props.params;
   const fileInfo = await getFileInfo(params.fileId);
 
   // Yükleniyor durumu (normalde anlık olmalı)

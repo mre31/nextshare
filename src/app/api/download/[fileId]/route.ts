@@ -37,7 +37,8 @@ async function streamFile(filePath: string, fileName: string) {
 }
 
 // GET handler for direct downloads (unencrypted or with password in query)
-export async function GET(request: NextRequest, { params }: { params: { fileId: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   try {
     const { fileId } = params;
     const password = request.nextUrl.searchParams.get('password');
@@ -78,7 +79,8 @@ export async function GET(request: NextRequest, { params }: { params: { fileId: 
 }
 
 // POST handler for password validation
-export async function POST(request: NextRequest, { params }: { params: { fileId: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   try {
     const { fileId } = params;
     const body = await request.json();

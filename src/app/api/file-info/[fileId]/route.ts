@@ -10,10 +10,8 @@ export const dynamic = 'force-dynamic';
 // Directory definitions
 const UPLOADS_DIR = join(process.cwd(), 'uploads');
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   try {
     // Önce params'i await etmemiz gerekiyor
     const resolvedParams = await Promise.resolve(params);

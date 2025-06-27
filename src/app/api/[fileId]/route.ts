@@ -22,10 +22,8 @@ function hashPassword(password: string): string {
 }
 
 // POST metodu parola kontrolü için kalabilir, belki bir indirme sayfasında parola girmek için kullanılır.
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   try {
     const body = await request.json();
     const password = body.password;
@@ -71,10 +69,8 @@ export async function POST(
   }
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ fileId: string }> }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
+  const params = await props.params;
   try {
     const resolvedParams = await Promise.resolve(params);
     const fileId = resolvedParams.fileId;
