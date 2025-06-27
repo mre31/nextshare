@@ -603,7 +603,7 @@ const FileUploadForm = () => {
               <div className="bg-zinc-700/30 rounded-lg p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label htmlFor="encrypt-toggle" className="text-zinc-300 font-medium">Encrypt file</Label>
+                    <Label htmlFor="encrypt-toggle" className="text-zinc-300 font-medium">Set a password</Label>
                     <p className="text-xs text-zinc-400 mt-1">Protect your file with a password</p>
                   </div>
                   <div className="w-32 flex justify-end">
