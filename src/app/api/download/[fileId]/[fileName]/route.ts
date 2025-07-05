@@ -27,7 +27,7 @@ async function streamFile(filePath: string, fileName: string) {
   });
 
   // Dosya adındaki çift tırnakları escape'le
-  const sanitizedFileName = fileName.replace(/"/g, '\\"');
+  const sanitizedFileName = fileName.replace(/"/g, '\"');
 
   return new NextResponse(stream, {
     headers: {
@@ -39,10 +39,9 @@ async function streamFile(filePath: string, fileName: string) {
   });
 }
 
-// GET handler for direct downloads (unencrypted or with password in query)
-export async function GET(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
-  const params = await props.params;
+export async function GET(request: NextRequest, { params: paramsPromise }: { params: Promise<{ fileId: string; fileName: string }> }) {
   try {
+    const params = await paramsPromise;
     const { fileId } = params;
     const password = request.nextUrl.searchParams.get('password');
 
@@ -82,9 +81,9 @@ export async function GET(request: NextRequest, props: { params: Promise<{ fileI
 }
 
 // POST handler for password validation
-export async function POST(request: NextRequest, props: { params: Promise<{ fileId: string }> }) {
-  const params = await props.params;
+export async function POST(request: NextRequest, { params: paramsPromise }: { params: Promise<{ fileId: string; fileName: string }> }) {
   try {
+    const params = await paramsPromise;
     const { fileId } = params;
     const body = await request.json();
     const { password } = body;
@@ -121,4 +120,3 @@ export async function POST(request: NextRequest, props: { params: Promise<{ file
     return NextResponse.json({ success: false, error: 'Server error' }, { status: 500 });
   }
 }
- 

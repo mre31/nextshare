@@ -27,7 +27,7 @@ export default function Home() {
       <footer className="py-3 px-6">
         <div className="container mx-auto text-center text-zinc-500 text-xs">
           <p>
-            NextShare V3.2.0 &copy; {new Date().getFullYear()} 
+            NextShare V3.3.0 &copy; {new Date().getFullYear()} 
             <button 
               onClick={() => setIsChangelogOpen(true)}
               className="ml-2 text-blue-400 hover:text-blue-300 hover:underline focus:outline-none transition"

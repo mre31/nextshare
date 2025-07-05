@@ -237,8 +237,8 @@ export async function POST(request: NextRequest) {
         const finalMetaPath = join(uploadFileDir, 'meta.json');
         await writeFile(finalMetaPath, JSON.stringify(meta, null, 2));
         
-        console.log(`File ${fileId} processed successfully (atomic). Share link: ${fileId}`);
-        return NextResponse.json({ success: true, message: 'File uploaded and processed successfully.', url: fileId });
+        console.log(`File ${fileId} processed successfully (atomic). Share link: ${fileId}/${encodeURIComponent(meta.fileName)}`);
+        return NextResponse.json({ success: true, message: 'File uploaded and processed successfully.', url: `${fileId}/${encodeURIComponent(meta.fileName)}` });
 
       } else {
         console.log(`Chunk ${chunkIndex + 1}/${totalChunks} for ${fileId} received. Waiting for more chunks.`);

@@ -30,14 +30,25 @@ const ChangelogModal = ({ isOpen, onClose }: ChangelogModalProps) => {
         {/* Modal content */}
         <div className="p-4 max-h-[70vh] overflow-y-auto">
           <div className="space-y-6">
-            {/* Version 3.2.0 */}
+            {/* Version 3.3.0 */}
             <div className="space-y-2">
               <h4 className="text-blue-400 font-semibold flex items-center">
                 <span className="inline-block w-2 h-2 bg-blue-400 rounded-full mr-2"></span>
-                Version 3.2.0
+                Version 3.3.0
                 <span className="ml-2 text-xs font-normal text-zinc-500">
                   Current
                 </span>
+              </h4>
+              <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
+                <p>• <strong>Download Compatibility:</strong> The download URL structure has been updated to include the filename. This ensures that command-line tools like wget and curl save the file with its original name by default.</p>
+              </div>
+            </div>
+
+            {/* Version 3.2.0 */}
+            <div className="space-y-2">
+              <h4 className="text-zinc-400 font-semibold flex items-center">
+                <span className="inline-block w-2 h-2 bg-zinc-400 rounded-full mr-2"></span>
+                Version 3.2.0
               </h4>
               <div className="pl-4 border-l border-zinc-700 ml-1 text-sm space-y-2 text-zinc-300">
                 <p>• <strong>SEO & UX Improvment:</strong> The file download page now dynamically generates metadata (title and description) based on file details (name, size, expiration), improving SEO and user experience.</p>

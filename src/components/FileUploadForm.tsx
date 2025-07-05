@@ -720,7 +720,7 @@ const FileUploadForm = () => {
                   ref={linkRef}
                   type="text"
                   readOnly
-                  value={`${window.location.origin}/${shareLink}`}
+                  value={`${window.location.origin}/${shareLink.split('/')[0]}`}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                   className="w-full bg-zinc-900 border border-zinc-700 rounded p-2 text-zinc-300 text-center mb-2"
                 />

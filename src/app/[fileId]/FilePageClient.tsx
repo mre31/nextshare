@@ -19,7 +19,7 @@ interface FilePageClientProps {
 }
 
 // Şifre giriş bileşeni
-function PasswordEntry({ fileId, onDownload }: { fileId: string; onDownload: (password: string) => void; }) {
+function PasswordEntry({ fileId, fileName, onDownload }: { fileId: string; fileName: string; onDownload: (password: string) => void; }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,7 +35,7 @@ function PasswordEntry({ fileId, onDownload }: { fileId: string; onDownload: (pa
 
     try {
       // API'ye şifreyi doğrulamak için bir istek gönder
-      const response = await fetch(`/api/download/${fileId}`, {
+      const response = await fetch(`/api/download/${fileId}/${encodeURIComponent(fileName)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
@@ -91,7 +91,7 @@ function PasswordEntry({ fileId, onDownload }: { fileId: string; onDownload: (pa
 export default function FilePageClient({ fileInfo, fileId }: FilePageClientProps) {
   const handlePasswordDownload = (password: string) => {
     // Şifre doğrulandıktan sonra, indirme linkini oluştur ve tetikle
-    const downloadUrl = `/api/download/${fileId}?password=${password}`;
+    const downloadUrl = `/api/download/${fileId}/${encodeURIComponent(fileInfo.fileName)}?password=${password}`;
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = fileInfo.fileName || 'download';
@@ -121,10 +121,10 @@ export default function FilePageClient({ fileInfo, fileId }: FilePageClientProps
           </div>
         </div>
         {fileInfo.isEncrypted ? (
-          <PasswordEntry fileId={fileId} onDownload={handlePasswordDownload} />
+          <PasswordEntry fileId={fileId} fileName={fileInfo.fileName} onDownload={handlePasswordDownload} />
         ) : (
           <div className="flex justify-center">
-            <a href={`/api/download/${fileId}`} download={fileInfo.fileName} className="w-full">
+            <a href={`/api/download/${fileId}/${encodeURIComponent(fileInfo.fileName)}`} download={fileInfo.fileName} className="w-full">
               <Button className="bg-blue-600 hover:bg-blue-700 text-white w-full py-2 rounded-md transition-all cursor-pointer">
                 Start Download
               </Button>
